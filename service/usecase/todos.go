@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"example/todo/service/user/db"
-	"fmt"
 	"time"
 
 	"example/todo/service/user/model"
@@ -36,6 +35,12 @@ type Response struct {
 	Data    interface{}
 	Success bool
 	Error   string
+}
+
+type LoginResponse struct {
+	Token   interface{} `json:"token"`
+	Success bool        `json:"success"`
+	Message string      `json:"message"`
 }
 
 var client *mongo.Client
@@ -130,8 +135,9 @@ func (svc *TodoCollection) ListTodo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Access-Control-Allow-Credentials", "true")
 	w.Header().Add("Access-Control-Allow-Headers", "Origin,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,locale")
-
+	// enableCors(&w)
 	res := &Response{}
+
 	defer json.NewEncoder(w).Encode(res)
 
 	repo := db.TodoListRepo{MongoCollection: svc.MongoCollection}
@@ -190,34 +196,51 @@ func (svc *UserModelCollection) ListUser(w http.ResponseWriter, r *http.Request)
 var jwtSecret = []byte("your_secret_key")
 
 func (user *UserModelCollection) UserLoginHandler(response http.ResponseWriter, request *http.Request) {
-	response.Header().Set("Content-Type", "application/json")
-	var dbUser *model.Users
 
+	response.Header().Add("Content-Type", "application/json")
+
+	var dbUser *model.Users
 	json.NewDecoder(request.Body).Decode(&dbUser)
+
+	loginRes := &LoginResponse{}
+	defer json.NewEncoder(response).Encode(loginRes)
 
 	repo := db.UserRepo{MongoCollection: user.MongoCollection}
 
-	// ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	fmt.Println("user", dbUser.Username)
 	dbUser, err := repo.FindUserInList(*dbUser.Username)
 
 	if err != nil {
-		response.Write([]byte(`{"response":"Wrong Credential"}`))
-		println("Error in finding user")
+		response.WriteHeader(http.StatusOK)
+
+		loginRes.Success = false
+		loginRes.Message = "User is not register please signup"
+
+		// json.NewEncoder(response).Encode(loginRes)
+		return
 	}
 
-	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{"message":"` + err.Error() + `"}`))
-		return
-	}
 	jwtToken, err := GenerateJWT(*dbUser.Username)
+
 	if err != nil {
+		loginRes.Success = false
+
+		loginRes.Message = err.Error()
+
+		loginRes.Token = ""
+
 		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{"message":"` + err.Error() + `"}`))
+		// response.Write([]byte(`{"message":"` + err.Error() + `","isSuccess": "`isSucces`",}`))
 		return
 	}
-	response.Write([]byte(`{"token":"` + jwtToken + `","message":"Login Successfully"}`))
+
+	loginRes.Success = true
+
+	loginRes.Message = "Login Successfully"
+
+	loginRes.Token = jwtToken
+
+	response.WriteHeader(http.StatusOK)
+
 }
 
 func (user *UserModelCollection) RegisterFunc(response http.ResponseWriter, request *http.Request) {
@@ -278,4 +301,8 @@ func GenerateJWT(email string) (string, error) {
 	})
 
 	return token.SignedString(jwtSecret)
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
 }

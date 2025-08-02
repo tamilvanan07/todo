@@ -112,6 +112,7 @@ func main() {
 	todoService := usecase.TodoCollection{MongoCollection: collection}
 	userService := usecase.UserModelCollection{MongoCollection: userCollection}
 	r := mux.NewRouter()
+	
 	r.Use(recoverMiddleware)
 	r.HandleFunc("/todos", todoListHandler).Methods(http.MethodGet)
 	r.HandleFunc("/todo", todoService.CreateTodo).Methods(http.MethodPost)
@@ -136,6 +137,8 @@ func recoverMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+
 
 func todoListHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)

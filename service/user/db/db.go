@@ -95,7 +95,6 @@ func (r *UserRepo) GetUserList() ([]model.Users, error) {
 		return nil, fmt.Errorf("result not available")
 	}
 
-	log.Printf("user list,", emps)
 	return emps, nil
 
 }
